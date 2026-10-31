@@ -27,6 +27,7 @@ ui_*.h
 .qmake.stash
 CMakeCache.txt
 CMakeFiles/
+.qmlls.ini
 Makefile
 ninja.build
 *.ninja
@@ -56,6 +57,19 @@ pip-wheel-metadata/
 *.mp3
 *.flac
 !/assets/**/*.wav
+
+# --- generated images -------------------------------------------------------
+# Screenshots from --capture, PNG exports, icons rendered at build time.
+*.png
+*.jpg
+*.jpeg
+*.webp
+
+# ...except the gallery the README embeds.
+!shots/hero.png
+!shots/*-view*.png
+# Desktop captures stay private even though the gallery above is tracked.
+shots/*-screen*.png
 
 # --- editor / IDE -----------------------------------------------------------
 .idea/
