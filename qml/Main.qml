@@ -292,7 +292,7 @@ Window {
                     }
 
                     Text {
-                        visible: app.state === "error" && app.errorText.length > 0
+                        visible: app.errorText.length > 0 && app.answer.length === 0
                         width: parent.width
                         y: 4
                         text: app.errorText

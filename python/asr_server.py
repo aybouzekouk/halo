@@ -93,9 +93,12 @@ class Engine:
         audio = np.ascontiguousarray(audio, dtype=np.float32)
         if audio.size < int(0.2 * self.rate):
             return ""
+        # One text token is worth 80 ms of audio; cap generation just above
+        # what the utterance can possibly need so silence never runs away.
+        budget = int(audio.size / self.rate * 12.5) + 32
         with self.torch.inference_mode():
             inputs = self._prepare(audio)
-            output = self.model.generate(**inputs)
+            output = self.model.generate(**inputs, max_new_tokens=min(budget, 1500))
         text = self.processor.batch_decode(output, skip_special_tokens=True)[0]
         return " ".join(text.split())
 

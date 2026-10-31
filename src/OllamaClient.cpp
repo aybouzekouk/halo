@@ -52,6 +52,10 @@ void OllamaClient::ask(const QString &prompt, const QJsonArray &history)
     body["messages"] = messages;
     body["stream"] = true;
     body["options"] = options;
+    // Keep the answer model hot between turns, and never let a reasoning model
+    // spend its whole budget thinking and return an empty answer.
+    body["keep_alive"] = QStringLiteral("20m");
+    body["think"] = false;
 
     QUrl url = m_endpoint;
     url.setPath(QStringLiteral("/api/chat"));

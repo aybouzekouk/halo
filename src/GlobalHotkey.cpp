@@ -120,7 +120,8 @@ bool GlobalHotkey::start(quint32 keysym, quint32 modifiers)
                                  XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
         xcb_generic_error_t *error = xcb_request_check(connection.get(), cookie);
         if (error) {
-            m_status = QStringLiteral("Ctrl+Space is already grabbed by another application.");
+            m_status = QStringLiteral("The shortcut is already grabbed (X error %1).")
+                           .arg(error->error_code);
             free(error);
             for (quint32 m : kGrabs)
                 xcb_ungrab_key(connection.get(), quint8(keycode), root, quint16(m));

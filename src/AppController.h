@@ -36,6 +36,7 @@ class AppController : public QObject
     Q_PROPERTY(qreal level READ level NOTIFY levelChanged)
     Q_PROPERTY(QObject *spectrum READ spectrum CONSTANT)
     Q_PROPERTY(bool speaking READ speaking NOTIFY stateChanged)
+    Q_PROPERTY(QString hotkeyLabel READ hotkeyLabel NOTIFY statusChanged)
 
 public:
     explicit AppController(QObject *parent = nullptr);
@@ -55,6 +56,7 @@ public:
     qreal level() const { return m_level; }
     QObject *spectrum();
     bool speaking() const { return m_state == QLatin1String("speaking"); }
+    QString hotkeyLabel() const { return m_hotkeyLabel; }
 
     Q_INVOKABLE void activate();
     Q_INVOKABLE void toggle();
@@ -114,6 +116,7 @@ private:
     QString m_asrMode;
     QString m_llmMode;
     QString m_ttsMode;
+    QString m_hotkeyLabel = QStringLiteral("Ctrl + Space");
 
     QString m_state = QStringLiteral("hidden");
     QString m_question;

@@ -69,6 +69,60 @@ int sentenceEnd(const QString &text, int minimumLength)
     return -1;
 }
 
+struct HotkeySpec
+{
+    quint32 keysym = 0x0020;
+    quint32 modifiers = 1u << 2; // ControlMask
+    QString label = QStringLiteral("Ctrl + Space");
+};
+
+bool parseHotkey(const QString &text, HotkeySpec *spec)
+{
+    HotkeySpec out;
+    QStringList parts;
+    for (const QString &raw : text.split(QLatin1Char('+'), Qt::SkipEmptyParts))
+        parts.append(raw.trimmed().toLower());
+
+    bool haveKey = false;
+    bool haveMod = false;
+    QStringList labels;
+    for (const QString &part : parts) {
+        if (part == QLatin1String("ctrl") || part == QLatin1String("control")) {
+            out.modifiers |= 1u << 2;
+            labels << QStringLiteral("Ctrl");
+            haveMod = true;
+        } else if (part == QLatin1String("alt") || part == QLatin1String("mod1")) {
+            out.modifiers |= 1u << 3;
+            labels << QStringLiteral("Alt");
+            haveMod = true;
+        } else if (part == QLatin1String("shift")) {
+            out.modifiers |= 1u << 0;
+            labels << QStringLiteral("Shift");
+            haveMod = true;
+        } else if (part == QLatin1String("super") || part == QLatin1String("meta")
+                   || part == QLatin1String("win")) {
+            out.modifiers |= 1u << 6;
+            labels << QStringLiteral("Super");
+            haveMod = true;
+        } else if (part == QLatin1String("space")) {
+            out.keysym = 0x0020;
+            labels << QStringLiteral("Space");
+            haveKey = true;
+        } else if (part.size() == 1 && part.at(0).isLetter()) {
+            out.keysym = quint32(part.at(0).toLatin1());
+            labels << part.toUpper();
+            haveKey = true;
+        } else {
+            return false;
+        }
+    }
+    if (!haveKey || !haveMod)
+        return false;
+    out.label = labels.join(QStringLiteral(" + "));
+    *spec = out;
+    return true;
+}
+
 } // namespace
 
 AppController::AppController(QObject *parent)
@@ -110,7 +164,7 @@ AppController::AppController(QObject *parent)
     m_llm->setEndpoint(QUrl(settings.value(QStringLiteral("ollamaUrl"),
         QStringLiteral("http://127.0.0.1:11434")).toString()));
     m_llm->setModel(settings.value(QStringLiteral("ollamaModel"),
-        QStringLiteral("ministral-3:3b")).toString());
+        QStringLiteral("qwen3.8:27b")).toString());
 
     m_tts = new PiperTts(this);
     QString piperBin = settings.value(QStringLiteral("piperBin")).toString();
@@ -294,10 +348,33 @@ AppController::AppController(QObject *parent)
     });
 
     connect(m_hotkey, &GlobalHotkey::activated, this, &AppController::toggle);
-    if (!m_hotkey->start())
-        qWarning() << "[halo] global hotkey:" << m_hotkey->status();
-    else
-        qInfo() << "[halo] global hotkey:" << m_hotkey->status();
+
+    // Ctrl+Space is often taken by the input-method switcher (IBus uses it by
+    // default), so fall back through alternatives and tell the UI which one
+    // actually landed.
+    QStringList candidates;
+    candidates << settings.value(QStringLiteral("hotkey"), QStringLiteral("ctrl+space")).toString();
+    candidates << QStringLiteral("ctrl+alt+space") << QStringLiteral("ctrl+shift+space")
+               << QStringLiteral("super+space");
+    candidates.removeDuplicates();
+    bool registered = false;
+    QStringList tried;
+    for (const QString &candidate : candidates) {
+        HotkeySpec spec;
+        if (!parseHotkey(candidate, &spec))
+            continue;
+        if (m_hotkey->start(spec.keysym, spec.modifiers)) {
+            m_hotkeyLabel = spec.label;
+            registered = true;
+            qInfo() << "[halo] global hotkey" << spec.label << "registered";
+            break;
+        }
+        tried << spec.label;
+    }
+    if (!registered)
+        qWarning() << "[halo] no global hotkey could be grabbed (tried" << tried.join(", ")
+                   << "):" << m_hotkey->status();
+    emit statusChanged();
 
     m_resumeTimer = new QTimer(this);
     m_resumeTimer->setSingleShot(true);
@@ -373,7 +450,7 @@ QString AppController::hintText() const
         return QStringLiteral("Press Esc to interrupt.");
     if (!m_notice.isEmpty())
         return m_notice;
-    return QStringLiteral("Ctrl + Space to talk again  ·  Esc to close");
+    return QStringLiteral("%1 to talk again  ·  Esc to close").arg(m_hotkeyLabel);
 }
 
 bool AppController::micAvailable() const
@@ -462,7 +539,7 @@ void AppController::setLevel(qreal level)
 void AppController::updateStatus()
 {
     if (m_demo) {
-        m_statusText = QStringLiteral("Demo mode  ·  no API key");
+        m_statusText = QStringLiteral("Demo mode  ·  scripted");
     } else {
         const QString asr = m_asrMode == QLatin1String("local")
             ? QStringLiteral("Voxtral 4B")
@@ -539,6 +616,13 @@ void AppController::startListening()
     resetTurnBuffers();
     setError(QString());
     setLevel(0.0);
+
+    // Microphones come and go (USB, Bluetooth): re-check before every turn.
+    const bool micNow = m_capture->available();
+    if (micNow != m_micAvailable) {
+        m_micAvailable = micNow;
+        updateStatus();
+    }
     m_voiceWarned = false;
     m_clearOnSpeech = true;
 
@@ -644,6 +728,7 @@ void AppController::onUtteranceDone(const QString &text)
         emit stateChanged();
         return;
     }
+    qInfo().noquote() << "[halo] heard:" << finalText;
     setQuestion(finalText);
     askQuestion(finalText);
 }
@@ -658,6 +743,7 @@ void AppController::onAnswerDone(const QString &full)
         enqueueSpeech(m_answerCarry);
         m_answerCarry.clear();
     }
+    qInfo().noquote() << "[halo] answered:" << m_answer.trimmed().left(160);
     pushHistory(m_question, m_answer);
     if (m_answer.trimmed().isEmpty()) {
         setError(QStringLiteral("The model returned an empty answer."));

@@ -8,11 +8,17 @@ shows the text while a glossy audio bar moves with the sound.
 Everything after the keystroke is local: the speech model, the language model
 and the voice. No account, no API key, no audio leaving the machine.
 
-![Listening](shots/listening-view01.png)
+![A real turn: Voxtral heard the question, the local model answered](shots/hero.png)
 
-| Thinking | Answering | Speaking |
+*Above: a real run — the WAV was spoken into the sidecar, Voxtral produced that
+transcript, and the local model wrote the answer as it streamed in.*
+
+| Listening | Thinking | Speaking |
 | --- | --- | --- |
-| ![Thinking](shots/thinking-view02.png) | ![Answering](shots/answering-view03.png) | ![Speaking](shots/speaking-view04.png) |
+| ![Listening](shots/listening-view01.png) | ![Thinking](shots/thinking-view02.png) | ![Speaking](shots/speaking-view04.png) |
+
+*These three are the scripted `--demo` states, captured without a microphone;
+the panel says so in the corner.*
 
 ---
 
@@ -42,9 +48,12 @@ halo/
 
 - **Qt 6.6 or newer** (built and tested with Qt 6.10.2) with Qt Quick,
   Qt Multimedia and Qt Network.
-- **A GPU with ~12 GB free VRAM** for the 4B speech model plus a small local
-  language model. Tested on an RTX 3090 (24 GB) together with
-  `ministral-3:3b`.
+- **A GPU with ~12 GB free VRAM** for the 4B speech model plus whatever the
+  local language model needs. This machine runs the 3090 at 22/24 GB with the
+  speech model resident and `qwen3.8:27b` partially offloaded to the CPU —
+  works, at roughly 12 tokens/s. A 3–8 B model stays entirely in VRAM and is
+  faster; `ministral-3:3b` from this Ollama install returns empty content, so it
+  is not the default here.
 - **Python 3.12** and [uv](https://docs.astral.sh/uv/) for the speech sidecar.
 - **Ollama** running locally for the answers (`ollama serve`).
 - Linux/X11 for the global hotkey. On Wayland the shortcut works when the
@@ -63,7 +72,7 @@ cd ~/halo
 ./scripts/setup.sh
 
 # 3. a local language model for the answers
-ollama pull ministral-3:3b
+ollama pull qwen3.8:27b
 ```
 
 ## Run
@@ -91,7 +100,11 @@ Useful flags:
 
 ## Using it
 
-1. **Ctrl + Space** opens the overlay and starts listening.
+1. **Ctrl + Space** opens the overlay and starts listening. If that combination
+   belongs to something else (IBus uses it for the input-method switch by
+   default), Halo falls back to **Ctrl + Alt + Space**, then Ctrl + Shift +
+   Space, then Super + Space, and the hint under the panel names the one it
+   got. Pin it with `hotkey=ctrl+alt+space` in the config.
 2. Speak. The live transcript appears while you talk; the bar follows your
    voice. Pause for about a second and Halo takes the turn.
 3. The answer streams in as text and is spoken sentence by sentence. The bar
@@ -134,7 +147,7 @@ not used here — the model's own config (`tekken.json`, 480 ms) applies.
 | Stage | Local default | Alternative |
 | --- | --- | --- |
 | Transcription | `python/asr_server.py` + Voxtral 4B | Mistral realtime websocket |
-| Answer | Ollama `ministral-3:3b` | Mistral chat completions |
+| Answer | Ollama `qwen3.8:27b` (or any chat model) | Mistral chat completions |
 | Voice | Piper `en_US-amy-medium` | Voxtral TTS |
 | Capture | Qt Multimedia, 16 kHz mono | — |
 
@@ -147,7 +160,7 @@ asr=local               ; local | mistral
 asrEndpoint=ws://127.0.0.1:8765
 llm=ollama              ; ollama | mistral
 ollamaUrl=http://127.0.0.1:11434
-ollamaModel=ministral-3:3b
+ollamaModel=qwen3.8:27b
 tts=piper               ; piper | mistral | none
 piperBin=/home/ayoub/halo/.venv/bin/piper
 piperVoice=/home/ayoub/halo/models/piper/en_US-amy-medium.onnx
@@ -199,7 +212,8 @@ working on the UI.
 
 | Symptom | Fix |
 | --- | --- |
-| "Ctrl+Space is already grabbed" | Another app owns the shortcut. Use `--show`, or free it. |
+| "The shortcut is already grabbed" | Another app owns it — usually IBus. Halo falls back automatically; the hint under the panel shows the working combination. |
+| Answers come back empty | A reasoning model used all of its budget on hidden thinking. Halo sends `think: false`; if the model still returns nothing (some GGUFs are broken), switch `ollamaModel`. |
 | Overlay renders as a black rectangle | Your X session has no compositing manager. Transparency needs one (picom, KWin, Mutter…). |
 | "Local voice model: connection refused" | Start `./scripts/start-asr.sh`. |
 | First answer is slow | The model is still loading, or Ollama is loading its weights. |

@@ -9,7 +9,7 @@ PORT="${2:-8769}"
 LOG=/tmp/opencode/asr-verify.log
 
 echo "waiting for $MODEL ..."
-for _ in $(seq 1 360); do
+for _ in $(seq 1 1440); do
   if [ -s "$MODEL" ] && [ "$(stat -c%s "$MODEL")" -gt 8000000000 ]; then break; fi
   sleep 10
 done

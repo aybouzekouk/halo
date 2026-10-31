@@ -18,6 +18,9 @@
 #include "AppController.h"
 
 #include <QQuickImageProvider>
+#include <QMediaDevices>
+#include <QAudioDevice>
+#include <QAudioFormat>
 
 namespace {
 
@@ -117,6 +120,8 @@ int main(int argc, char *argv[])
         QStringLiteral("dir"));
     const QCommandLineOption hotkeyOption(QStringLiteral("no-hotkey"),
         QStringLiteral("Do not grab Ctrl+Space globally."));
+    const QCommandLineOption probeOption(QStringLiteral("audio-devices"),
+        QStringLiteral("List audio devices and exit."));
     const QCommandLineOption feedOption(QStringLiteral("feed"),
         QStringLiteral("Stream this 16 kHz mono WAV instead of the microphone."),
         QStringLiteral("wav"));
@@ -129,7 +134,36 @@ int main(int argc, char *argv[])
     parser.addOption(hotkeyOption);
     parser.addOption(askOption);
     parser.addOption(feedOption);
+    parser.addOption(probeOption);
     parser.process(app);
+
+    if (parser.isSet(probeOption)) {
+        auto describe = [](const QAudioDevice &device) {
+            QAudioFormat preferred = device.preferredFormat();
+            qInfo().noquote() << " \"" << device.description() << "\"";
+            qInfo().noquote() << "    default:" << device.isDefault()
+                              << " preferred:" << preferred.sampleRate() << "Hz"
+                              << preferred.channelCount() << "ch"
+                              << int(preferred.sampleFormat());
+            for (int rate : { 16000, 22050, 24000, 44100, 48000 }) {
+                for (int ch : { 1, 2 }) {
+                    QAudioFormat f;
+                    f.setSampleRate(rate);
+                    f.setChannelCount(ch);
+                    f.setSampleFormat(QAudioFormat::Int16);
+                    if (device.isFormatSupported(f))
+                        qInfo().noquote() << "    ok:" << rate << "Hz" << ch << "ch int16";
+                }
+            }
+        };
+        qInfo().noquote() << "== inputs ==";
+        for (const QAudioDevice &d : QMediaDevices::audioInputs())
+            describe(d);
+        qInfo().noquote() << "== outputs ==";
+        for (const QAudioDevice &d : QMediaDevices::audioOutputs())
+            describe(d);
+        return 0;
+    }
 
     if (parser.isSet(demoOption))
         qputenv("HALO_FORCE_DEMO", "1");
