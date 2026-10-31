@@ -1,0 +1,11 @@
+# Local speech-to-text (Voxtral Mini 4B Realtime) + local answers and voice.
+torch>=2.5
+torchaudio>=2.5
+transformers>=5.2
+mistral-common[audio]>=1.9
+soundfile
+soxr
+websockets>=14
+piper-tts
+onnxruntime
+numpy

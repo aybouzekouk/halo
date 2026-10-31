@@ -1,0 +1,83 @@
+# --- build output -----------------------------------------------------------
+build/
+build-*/
+cmake-build-*/
+out/
+_install/
+CMakeUserPresets.json
+compile_commands.json
+.cache/
+*.o
+*.obj
+*.so
+*.so.*
+*.a
+*.dylib
+*.dll
+*.exe
+*.pdb
+*.moc
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.qmlc
+*.jsc
+.qmlcache/
+.qmake.stash
+CMakeCache.txt
+CMakeFiles/
+Makefile
+ninja.build
+*.ninja
+
+# --- local model + tools ----------------------------------------------------
+# Weights are downloaded by scripts/setup.sh, never committed.
+models/
+.sysroot/
+.venv/
+venv/
+env/
+.Python
+
+# --- python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- audio / runtime captures ----------------------------------------------
+*.wav
+*.mp3
+*.flac
+!/assets/**/*.wav
+
+# --- editor / IDE -----------------------------------------------------------
+.idea/
+.vscode/
+*.user
+*.user.*
+*.autosave
+*.kate-swp
+*~
+*.swp
+tags
+.filetags
+
+# --- operating system -------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.desktop.bak
+
+# --- logs and dumps ---------------------------------------------------------
+*.log
+core
+core.*
+vgcore.*
+perf.data*
